@@ -1,0 +1,10 @@
+[
+    {
+        "id": 1,
+        "usuario": "admin",
+        "senha": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+        "nome": "Administrador",
+        "nivel": 3,
+        "ativo": true
+    }
+]
