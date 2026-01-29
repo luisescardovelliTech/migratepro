@@ -4,11 +4,32 @@ Componente de autenticação e login.
 
 import streamlit as st
 from utils.data_manager import autenticar_usuario, carregar_usuarios
+import datetime
+from streamlit_cookies_controller import CookieController
 
+# Inicializa o controlador de cookies
+controller = CookieController()
 
 def verificar_autenticacao():
     """Verifica se o usuário está autenticado. Retorna True se sim."""
-    return st.session_state.get('autenticado', False)
+    if st.session_state.get('autenticado', False):
+        return True
+        
+    # Tenta recuperar via cookie se não estiver na sessão RAM
+    token = controller.get('usuario_token')
+    if token:
+        # Formato token esperto: "usuario|senha" (Simples para demo, ideal seria JWT)
+        try:
+            user, pwd = token.split('|')
+            user_data = autenticar_usuario(user, pwd)
+            if user_data:
+                st.session_state['autenticado'] = True
+                st.session_state['usuario'] = user_data
+                return True
+        except:
+            pass
+            
+    return False
 
 
 def obter_usuario_logado():
@@ -41,6 +62,7 @@ def fazer_logout():
     """Realiza o logout do usuário."""
     st.session_state['autenticado'] = False
     st.session_state['usuario'] = None
+    controller.remove('usuario_token')
     st.rerun()
 
 
@@ -81,6 +103,7 @@ def mostrar_tela_login():
         with st.form("login_form"):
             usuario = st.text_input("👤 Usuário", placeholder="Digite seu usuário")
             senha = st.text_input("🔒 Senha", type="password", placeholder="Digite sua senha")
+            manter_conectado = st.checkbox("Manter conectado")
             
             col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
             with col_btn2:
@@ -92,6 +115,15 @@ def mostrar_tela_login():
                     if user_data:
                         st.session_state['autenticado'] = True
                         st.session_state['usuario'] = user_data
+                        
+                        if manter_conectado:
+                            # Salva cookie por 7 dias
+                            # Nota: salvando credenciais raw por simplicidade de demo.
+                            # Em prod, use token JWT seguro.
+                            token = f"{usuario}|{senha}"
+                            expires = datetime.datetime.now() + datetime.timedelta(days=7)
+                            controller.set('usuario_token', token, expires=expires)
+                            
                         st.success(f"Bem-vindo, {user_data['nome']}!")
                         st.rerun()
                     else:
