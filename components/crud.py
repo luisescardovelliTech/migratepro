@@ -207,13 +207,26 @@ def mostrar_detalhes_projeto(projeto: dict):
                     help="Quantos dias você estima para concluir a migração?"
                 )
                 
+                # Data Fim e Lógica de Conclusão
                 data_fim_val = None
+                is_concluido = False
+                
                 if projeto.get('data_fim'):
                     try:
                         data_fim_val = datetime.strptime(projeto['data_fim'], '%Y-%m-%d').date()
+                        is_concluido = True
                     except:
                         pass
-                data_fim = st.date_input("Data Conclusão", value=data_fim_val, format="DD/MM/YYYY", help="Marque quando o projeto for concluído")
+                
+                marcar_concluido = st.checkbox("Marcar como Concluído", value=is_concluido, help="Ativa a data de conclusão")
+                
+                data_fim = None
+                if marcar_concluido:
+                    if not data_fim_val:
+                        data_fim_val = date.today()
+                    data_fim = st.date_input("Data Conclusão", value=data_fim_val, format="DD/MM/YYYY")
+                else:
+                    data_fim = None
                 
                 metodo = st.selectbox(
                     "Método de Migração",
