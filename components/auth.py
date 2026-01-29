@@ -100,7 +100,6 @@ def mostrar_tela_login():
                     st.warning("⚠️ Preencha todos os campos!")
         
         st.markdown("---")
-        st.markdown("<p style='text-align: center; color: #8892b0; font-size: 0.8rem;'>Usuário padrão: admin / admin123</p>", unsafe_allow_html=True)
 
 
 def mostrar_info_usuario():
@@ -115,3 +114,4 @@ def mostrar_info_usuario():
         
         if st.sidebar.button("🚪 Sair", use_container_width=True):
             fazer_logout()
+
