@@ -129,7 +129,7 @@ def mostrar_tela_login():
                                 token = f"{usuario}|{senha}"
                                 expires = datetime.datetime.now() + datetime.timedelta(days=7)
                                 controller.set('usuario_token', token, expires=expires)
-                            exceptException as e:
+                            except Exception as e:
                                 print(f"Erro ao salvar cookie: {e}")
                                 pass
                             
