@@ -112,6 +112,5 @@ def mostrar_info_usuario():
         st.sidebar.markdown(f"👤 **{usuario['nome']}**")
         st.sidebar.markdown(f"🏷️ {nivel_nome.get(usuario['nivel'], 'Desconhecido')}")
         
-        if st.sidebar.button("🚪 Sair", use_container_width=True):
+        if st.sidebar.button("🚪 Sair", use_container_width=True, type="primary"):
             fazer_logout()
-
