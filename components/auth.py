@@ -17,7 +17,8 @@ def verificar_autenticacao():
         
     # Tenta recuperar via cookie se não estiver na sessão RAM
     try:
-        controller = CookieController()
+        # Key fixa é crucial para estabilidade no Streamlit Cloud
+        controller = CookieController(key='migratepro_cookies')
         token = controller.get('usuario_token')
         if token:
             # Formato token esperto: "usuario|senha" (Simples para demo, ideal seria JWT)
@@ -64,7 +65,7 @@ def fazer_logout():
     st.session_state['autenticado'] = False
     st.session_state['usuario'] = None
     try:
-        controller = CookieController()
+        controller = CookieController(key='migratepro_cookies')
         controller.remove('usuario_token')
     except:
         pass
@@ -124,11 +125,12 @@ def mostrar_tela_login():
                         if manter_conectado:
                             # Salva cookie por 7 dias
                             try:
-                                controller = CookieController()
+                                controller = CookieController(key='migratepro_cookies')
                                 token = f"{usuario}|{senha}"
                                 expires = datetime.datetime.now() + datetime.timedelta(days=7)
                                 controller.set('usuario_token', token, expires=expires)
-                            except:
+                            exceptException as e:
+                                print(f"Erro ao salvar cookie: {e}")
                                 pass
                             
                         st.success(f"Bem-vindo, {user_data['nome']}!")
