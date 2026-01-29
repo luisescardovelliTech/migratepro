@@ -7,8 +7,8 @@ from utils.data_manager import autenticar_usuario, carregar_usuarios
 import datetime
 from streamlit_cookies_controller import CookieController
 
-# Inicializa o controlador de cookies
-controller = CookieController()
+# Inicializa o controlador de cookies (REMOVIDO DO ESCOPO GLOBAL)
+# controller = CookieController()
 
 def verificar_autenticacao():
     """Verifica se o usuário está autenticado. Retorna True se sim."""
@@ -16,18 +16,19 @@ def verificar_autenticacao():
         return True
         
     # Tenta recuperar via cookie se não estiver na sessão RAM
-    token = controller.get('usuario_token')
-    if token:
-        # Formato token esperto: "usuario|senha" (Simples para demo, ideal seria JWT)
-        try:
+    try:
+        controller = CookieController()
+        token = controller.get('usuario_token')
+        if token:
+            # Formato token esperto: "usuario|senha" (Simples para demo, ideal seria JWT)
             user, pwd = token.split('|')
             user_data = autenticar_usuario(user, pwd)
             if user_data:
                 st.session_state['autenticado'] = True
                 st.session_state['usuario'] = user_data
                 return True
-        except:
-            pass
+    except:
+        pass
             
     return False
 
@@ -62,7 +63,11 @@ def fazer_logout():
     """Realiza o logout do usuário."""
     st.session_state['autenticado'] = False
     st.session_state['usuario'] = None
-    controller.remove('usuario_token')
+    try:
+        controller = CookieController()
+        controller.remove('usuario_token')
+    except:
+        pass
     st.rerun()
 
 
@@ -118,11 +123,13 @@ def mostrar_tela_login():
                         
                         if manter_conectado:
                             # Salva cookie por 7 dias
-                            # Nota: salvando credenciais raw por simplicidade de demo.
-                            # Em prod, use token JWT seguro.
-                            token = f"{usuario}|{senha}"
-                            expires = datetime.datetime.now() + datetime.timedelta(days=7)
-                            controller.set('usuario_token', token, expires=expires)
+                            try:
+                                controller = CookieController()
+                                token = f"{usuario}|{senha}"
+                                expires = datetime.datetime.now() + datetime.timedelta(days=7)
+                                controller.set('usuario_token', token, expires=expires)
+                            except:
+                                pass
                             
                         st.success(f"Bem-vindo, {user_data['nome']}!")
                         st.rerun()
