@@ -236,6 +236,11 @@ def main():
         
         st.markdown("---")
         
+        if st.button("🔄 Atualizar Dados", use_container_width=True):
+            st.rerun()
+            
+        st.markdown("---")
+        
         # Menu de navegação
         menu_options = ["📊 Visão Geral", "📋 Todos os Projetos"]
         
