@@ -1,36 +1,114 @@
 """
 Componente de autenticação e login.
+Usa Supabase para armazenar sessões de usuários.
+Funciona corretamente com múltiplos usuários no Streamlit Cloud.
 """
 
 import streamlit as st
-from utils.data_manager import autenticar_usuario, carregar_usuarios
+from utils.data_manager import autenticar_usuario, carregar_usuarios, get_supabase_client
 import datetime
-from streamlit_cookies_controller import CookieController
+import uuid
 
-# Inicializa o controlador de cookies (REMOVIDO DO ESCOPO GLOBAL)
-# controller = CookieController()
+
+# Configurações
+SESSION_EXPIRY_DAYS = 7
+SESSION_PARAM_NAME = 'session'
+
+
+def _criar_sessao(usuario_id: int, usuario: str, senha: str) -> str:
+    """Cria uma nova sessão no Supabase e retorna o token."""
+    client = get_supabase_client()
+    if not client:
+        return None
+    
+    try:
+        token = str(uuid.uuid4())
+        expira = (datetime.datetime.now() + datetime.timedelta(days=SESSION_EXPIRY_DAYS)).isoformat()
+        
+        # Insere ou atualiza sessão
+        client.table('sessoes').upsert({
+            'token': token,
+            'usuario_id': usuario_id,
+            'usuario': usuario,
+            'senha': senha,
+            'expira_em': expira
+        }).execute()
+        
+        return token
+    except Exception as e:
+        # Se a tabela não existir, cria ela
+        try:
+            client.rpc('create_sessoes_table').execute()
+        except:
+            pass
+        return None
+
+
+def _validar_sessao(token: str) -> dict:
+    """Valida uma sessão pelo token e retorna dados do usuário."""
+    if not token:
+        return None
+    
+    client = get_supabase_client()
+    if not client:
+        return None
+    
+    try:
+        response = client.table('sessoes').select('*').eq('token', token).execute()
+        
+        if response.data:
+            sessao = response.data[0]
+            
+            # Verifica se não expirou
+            expira = datetime.datetime.fromisoformat(sessao['expira_em'].replace('Z', '+00:00').replace('+00:00', ''))
+            if datetime.datetime.now() > expira:
+                _remover_sessao(token)
+                return None
+            
+            # Autentica usuário para obter dados atualizados
+            user_data = autenticar_usuario(sessao['usuario'], sessao['senha'])
+            return user_data
+    except Exception as e:
+        pass
+    
+    return None
+
+
+def _remover_sessao(token: str):
+    """Remove uma sessão do Supabase."""
+    if not token:
+        return
+    
+    client = get_supabase_client()
+    if not client:
+        return
+    
+    try:
+        client.table('sessoes').delete().eq('token', token).execute()
+    except:
+        pass
+
 
 def verificar_autenticacao():
     """Verifica se o usuário está autenticado. Retorna True se sim."""
+    # Se já está autenticado na sessão atual, retorna True
     if st.session_state.get('autenticado', False):
         return True
-        
-    # Tenta recuperar via cookie se não estiver na sessão RAM
-    try:
-        # Key fixa é crucial para estabilidade no Streamlit Cloud
-        controller = CookieController(key='migratepro_cookies')
-        token = controller.get('usuario_token')
-        if token:
-            # Formato token esperto: "usuario|senha" (Simples para demo, ideal seria JWT)
-            user, pwd = token.split('|')
-            user_data = autenticar_usuario(user, pwd)
-            if user_data:
-                st.session_state['autenticado'] = True
-                st.session_state['usuario'] = user_data
-                return True
-    except:
-        pass
-            
+    
+    # Verifica se há token de sessão na URL
+    token = st.query_params.get(SESSION_PARAM_NAME)
+    
+    if token:
+        user_data = _validar_sessao(token)
+        if user_data:
+            st.session_state['autenticado'] = True
+            st.session_state['usuario'] = user_data
+            st.session_state['session_token'] = token
+            return True
+        else:
+            # Token inválido, limpa query params
+            st.query_params.clear()
+    
     return False
 
 
@@ -62,13 +140,15 @@ def pode_administrar():
 
 def fazer_logout():
     """Realiza o logout do usuário."""
+    # Remove sessão do banco
+    token = st.session_state.get('session_token')
+    if token:
+        _remover_sessao(token)
+    
     st.session_state['autenticado'] = False
     st.session_state['usuario'] = None
-    try:
-        controller = CookieController(key='migratepro_cookies')
-        controller.remove('usuario_token')
-    except:
-        pass
+    st.session_state['session_token'] = None
+    st.query_params.clear()
     st.rerun()
 
 
@@ -85,17 +165,6 @@ def mostrar_tela_login():
             background: linear-gradient(135deg, #1e3a5f 0%, #0d1b2a 100%);
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-        }
-        .login-title {
-            text-align: center;
-            font-size: 2rem;
-            color: #fff;
-            margin-bottom: 30px;
-        }
-        .login-subtitle {
-            text-align: center;
-            color: #8892b0;
-            margin-bottom: 30px;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -123,15 +192,11 @@ def mostrar_tela_login():
                         st.session_state['usuario'] = user_data
                         
                         if manter_conectado:
-                            # Salva cookie por 7 dias
-                            try:
-                                controller = CookieController(key='migratepro_cookies')
-                                token = f"{usuario}|{senha}"
-                                expires = datetime.datetime.now() + datetime.timedelta(days=7)
-                                controller.set('usuario_token', token, expires=expires)
-                            except Exception as e:
-                                print(f"Erro ao salvar cookie: {e}")
-                                pass
+                            # Cria sessão no Supabase
+                            token = _criar_sessao(user_data['id'], usuario, senha)
+                            if token:
+                                st.session_state['session_token'] = token
+                                st.query_params[SESSION_PARAM_NAME] = token
                             
                         st.success(f"Bem-vindo, {user_data['nome']}!")
                         st.rerun()
@@ -155,3 +220,4 @@ def mostrar_info_usuario():
         
         if st.sidebar.button("🚪 Sair", use_container_width=True, type="primary"):
             fazer_logout()
+
