@@ -183,13 +183,26 @@ def mostrar_detalhes_projeto(projeto: dict):
             with st.form(f"form_editar_{projeto['id']}"):
                 nome = st.text_input("Nome", value=projeto['nome'])
                 
+                # Data Início e Lógica de Início
                 data_inicio_val = None
+                is_iniciado = False
+                
                 if projeto.get('data_inicio'):
                     try:
                         data_inicio_val = datetime.strptime(projeto['data_inicio'], '%Y-%m-%d').date()
+                        is_iniciado = True
                     except:
                         pass
-                data_inicio = st.date_input("Data Início", value=data_inicio_val, format="DD/MM/YYYY")
+                
+                marcar_iniciado = st.checkbox("Marcar como Iniciado", value=is_iniciado, help="Ativa a data de início do projeto")
+                
+                data_inicio = None
+                if marcar_iniciado:
+                    if not data_inicio_val:
+                        data_inicio_val = date.today()
+                    data_inicio = st.date_input("Data Início", value=data_inicio_val, format="DD/MM/YYYY")
+                else:
+                    data_inicio = None
                 
                 data_prazo_val = None
                 if projeto.get('data_prazo'):
